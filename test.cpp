@@ -8,3 +8,4 @@ int main() {
     cout << "7 " << (char)i << " 40" << endl;
   }
 }
+

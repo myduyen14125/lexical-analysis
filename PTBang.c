@@ -3,24 +3,23 @@
 #include <stdlib.h>
 const int ERROR_STATE = 100;
 #define MAX 100
+#define MAX_COL 256
 typedef int state;            // kieu cac trang thai
 typedef unsigned char *attri; // kieu cua thuoc tinh
 typedef unsigned char *token; // kieu cua tu to
 unsigned char *x;             // xau vao x ()
 unsigned int i = 0;           // vi tri cua ky tu doc trong xau x
 int table[MAX][MAX];
+int state_get_space[] = {1, 3, 5, 7, 9, 12};
 
 unsigned char readchar(unsigned char *x, unsigned int i) // unsigned char : các số nguyên dương từ 0 đến 255
 {
     // tra ve ky tu tiep theo, tương ứng với kí tự thứ i
     //    printf("i= %d , c= %c",i,*(x + i));
-    if (i < strlen(x))
-    {
-
+    if (i < strlen(x)) {
         return (*(x + i));
     }
-    else
-    {
+    else {
         return ('\0'); // \0 : null, được định nghĩa là 1 kí tự null- đó là 1 kí tự mà các bit đặt thành 0, sử dụng để chấm dứt chuỗi
     }
 }
@@ -164,8 +163,10 @@ void remove_space() // cat ky tu trang
 	
     unsigned char result[500]; // mang luu ket qua
     int pos = 0;
-    for (int i = 0; i < strlen(*chuoi); i++) { // duyet chuoi
+    int i;
+    for (i = 0; i < strlen(*chuoi); i++) { // duyet chuoi
         if (*(*(chuoi) + i) == ' ' || *(*(chuoi) + i) == '\n' || *(*(chuoi) + i) == 'r') { // nếu là kí tự trắng
+            
             continue;
         }
         else {
@@ -184,10 +185,36 @@ token search_token(unsigned int *i, attri tt) { // tim kiem token
     unsigned char c;
     state s = 0, cs; // trang thai hien tai, trang thai tiep theo
     // cắt ký tự trắng bỏ
-     remove_space();
+    //  remove_space();
     // printf("%s",x);
+    // 1 vong do cat duoc 1 tu to 
     do {
-        c = readchar(x, *i);
+
+        do
+        {
+            c = readchar(x, *i);
+            // printf("Doc ki tu c: %c\n", c);
+            // printf("Vi tri i: %d\n", *i);
+            *i = *i + 1;
+            
+            int isSpace = 0;
+            // c = ' '
+            if(c == ' ' || c == '\n') {
+                int length = sizeof state_get_space / sizeof(int);
+                int j;
+                // printf("length = %d\n", length);
+                for(j = 0; j < length; j++) {
+                    if(s == state_get_space[j]) {
+                    // printf("Lay khoang trang\n");
+                        isSpace = 1;
+                        break;
+                    }
+                }
+            }
+            if(isSpace == 1) { break; }
+        } while ((c == ' ') && (*i < strlen(x)));
+
+        
         cs = table[s][c]; // trạng thái tiếp theo
         // printf("----- s = %d, c = %c, cs = %d -------", s, c, cs);
         if (cs == ERROR_STATE) {
@@ -206,14 +233,14 @@ token search_token(unsigned int *i, attri tt) { // tim kiem token
             strcpy(tt, attribute(cs));
             break;
         }
-        else if (*i >= (strlen(x) - 1)) {
+        else if (*i > (strlen(x) - 1)) {
             printf("het xau vao, ko roi vao TT ket thuc");
             tk = "Error";
             break;
         }
         else {
             catchar_in_token(c, tk);
-            *i=*i+1;
+            // *i=*i+1;
             s = cs;
         }
     } while (1);
@@ -224,8 +251,18 @@ void create_table()
     // tao bang chuyen trang thai table
     // Đọc file thành table
 
+    int i, j;
+    // Khoi tao tat ca cac o trong table co trang thai ERROR_STATE
+    for (i = 0; i < 100; i++)
+    {
+        for (j = 0; j < MAX_COL; j++)
+        {
+            table[i][j] = ERROR_STATE;
+        }
+    }
+
     FILE *fp;
-    char fname[] = "table.txt";
+    char fname[] = "tableNew.txt";
     fp = fopen(fname, "r");
     if (fp == NULL) {
         printf("Loi mo file");
@@ -233,12 +270,39 @@ void create_table()
     }
     
     int state, next; // state: trạng thái vao, next : trạng thái tiep theo
-    char t; // kí tự đọc vào
+    unsigned char *c;
+    unsigned char *t; // kí tự đọc vào
 
     // read file into the table
-    while (fscanf(fp, "%d %c %d", &state, &t, &next) != EOF) {
-        table[state][t] = next;
+    while (fscanf(fp, "%d %s %d", &state, &c, &next) != EOF)
+    {
+        if (strcmp((const char *)&c, "khac") == 0)
+        {
+            int i;
+            for (i = 0; i < MAX_COL; i++)
+            {
+                table[state][i] = next;
+            }
+        }
+        else if (strcmp((const char *)&c, "enter") == 0)
+        {
+            table[state][10] = next;
+        }
+        else if (strlen((const char *)&c) == 3)
+        {
+            t = &c;
+            unsigned char k;
+            for (k = *t; k <= *(t + 2); k++)
+            {
+                table[state][(unsigned char)k] = next;
+            }
+        }
+        else
+        {
+            table[state][(unsigned char)c] = next;
+        }
     }
+
     fclose(fp);
 }
 void save_token_and_attribute(token tk, attri a)
@@ -264,7 +328,7 @@ void lexical_analysis()
             printf("\n");
         }
         else {
-            printf("\nToken: %s", tk);
+            // printf("\nToken: %s", tk);
             break;
         }
         
@@ -276,7 +340,7 @@ void input() {
 	x = (unsigned char *)malloc(150 * sizeof(unsigned char)); 
     // printf("Nhap vao xau: ");
     // fgets(x, 150, stdin);
-    x = "+= >> >>= << <<=";
+    x = ">= > >>= >> <= <* >! ";
 }
 
 
